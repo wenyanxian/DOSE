@@ -9,25 +9,12 @@ setwd("D:/analysis/stroke")
 ## ------------------------------------------------------------------
 ## 🚩 饮食 QC
 ## ------------------------------------------------------------------
-std_10_90 <- function(x){  # 统一标准化到同一尺度（10th→90th 的增量） Per 10th-to-90th percentile increment
-	x <- as.numeric(x); q <- quantile(x, c(0.10, 0.90), na.rm = TRUE, names = FALSE); if(!all(is.finite(q)) || q[2] == q[1]) rep(NA_real_, length(x)) else (x - q[1]) / (q[2] - q[1])
-}
-score_q5 <- function(x){ # 真正五分位 -> 0/25/50/75/100
-	x <- as.numeric(x); out <- rep(NA_real_, length(x)); ok <- is.finite(x); out[ok] <- c(0, 25, 50, 75, 100)[dplyr::ntile(x[ok], 5)]; out
-}
-score_q4 <- function(x){ # modern的分组：先算四分位切点，再按真正的分位点阈值划区间（不拆相同分值，但可能因为分数太离散，最后组数变少）
-	x <- as.numeric(x); q <- unique(quantile(x, c(0,.25,.5,.75,1), na.rm=TRUE, names=FALSE))
-	if(length(q) < 3) factor(rep(NA_character_, length(x))) else cut(x, breaks=q, include.lowest=TRUE, right=TRUE, ordered_result=TRUE)
-}
-score_0_100 <- function(x){
-	x <- as.numeric(x); ok <- is.finite(x); if(sum(ok) < 2) rep(NA_real_, length(x)) else {mn <- min(x[ok]); mx <- max(x[ok]); if(mx == mn) rep(NA_real_, length(x)) else {out <- rep(NA_real_, length(x)); out[ok] <- (x[ok] - mn) / (mx - mn) * 100; out}}
-}
-score_0_100_q5 <- function(x){ # 先缩放到 0-100，再按固定宽度切成 5 档
-	x <- as.numeric(x); ok <- is.finite(x); if(sum(ok) < 2) rep(NA_real_, length(x)) else {mn <- min(x[ok]); mx <- max(x[ok]); if(mx == mn) rep(NA_real_, length(x)) else {out <- rep(NA_real_, length(x)); out[ok] <- (x[ok] - mn) / (mx - mn) * 100; as.numeric(as.character(cut(out, breaks = c(-Inf, 20, 40, 60, 80, Inf), labels = c(0, 25, 50, 75, 100), right = FALSE)))}}
-}
+std_10_90 <- function(x){ x <- as.numeric(x); q <- quantile(x, c(0.10, 0.90), na.rm = TRUE, names = FALSE); if(!all(is.finite(q)) || q[2] == q[1]) rep(NA_real_, length(x)) else (x - q[1]) / (q[2] - q[1])}
+score_q5 <- function(x){ x <- as.numeric(x); out <- rep(NA_real_, length(x)); ok <- is.finite(x); out[ok] <- c(0, 25, 50, 75, 100)[dplyr::ntile(x[ok], 5)]; out}
+score_0_100 <- function(x){x <- as.numeric(x); ok <- is.finite(x); if(sum(ok) < 2) rep(NA_real_, length(x)) else {mn <- min(x[ok]); mx <- max(x[ok]); if(mx == mn) rep(NA_real_, length(x)) else {out <- rep(NA_real_, length(x)); out[ok] <- (x[ok] - mn) / (mx - mn) * 100; out}}}
+score_0_100_q5 <- function(x){ x <- as.numeric(x); ok <- is.finite(x); if(sum(ok) < 2) rep(NA_real_, length(x)) else {mn <- min(x[ok]); mx <- max(x[ok]); if(mx == mn) rep(NA_real_, length(x)) else {out <- rep(NA_real_, length(x)); out[ok] <- (x[ok] - mn) / (mx - mn) * 100; as.numeric(as.character(cut(out, breaks = c(-Inf, 20, 40, 60, 80, Inf), labels = c(0, 25, 50, 75, 100), right = FALSE)))}}}
 
 dat0 <- readRDS(paste0(indir, "/Rdata/all.rds"))
-# dat0 <- dat0 %>% left_join(readRDS("dose_score.rds"), by = "eid")
 sum_cols <- names(dat0)[grepl("^diet\\..+\\.sum$", names(dat0))]
 dat <- dat0 %>% mutate(
 	across(all_of(sum_cols), std_10_90, .names = "{sub('\\\\.sum$', '', .col)}.std"),
@@ -74,7 +61,6 @@ dat <- dat %>% mutate(
 ) %>% filter(!prior_qi_stroke) 
 follow_end <- as.Date(date_follow_end)
 dat <- dat %>% mutate(end0 = pmin(date_lost, date_death, follow_end, na.rm = TRUE)) %>% filter(is.na(end0) | end0 > start_date)
-# I6[0-4]	qi_stroke;	I63	cvd_stroke_i	Ischemic stroke;	I61	cvd_stroke_ih	Intracerebral hemorrhage;	I60	cvd_stroke_sh	Subarachnoid hemorrhage	
 Ys <- c("qi_stroke", "cvd_stroke_i", "cvd_stroke_ih", "cvd_stroke_sh") 
 out_map <- c("qi_stroke" = "Overall stroke", "cvd_stroke_i" = "Ischemic stroke", "cvd_stroke_ih" = "Intracerebral hemorrhage", "cvd_stroke_sh" = "Subarachnoid hemorrhage")
 for (Y in Ys) {
